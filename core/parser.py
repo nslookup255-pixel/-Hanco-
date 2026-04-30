@@ -1,6 +1,6 @@
 import ast
 
-from ast_nodes import *
+from .ast_nodes import *
 
 class Parser:
     def __init__(self,t):
