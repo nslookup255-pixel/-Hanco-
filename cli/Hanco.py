@@ -1,6 +1,5 @@
 import sys
 
-# core 모듈 import (네 구조에 맞게 수정)
 from core.lexer import Lexer
 from core.parser import Parser
 from core.vm import VM
@@ -21,7 +20,7 @@ def run_file(path):
         vm.run(ast)
 
     except Exception as e:
-        print(f"❌ 오류: {e}")
+        print(f"오류: {e}")
 
 
 def repl():
@@ -43,7 +42,7 @@ def repl():
             vm.run(ast)
 
         except Exception as e:
-            print(f"❌ 오류: {e}")
+            print(f"오류: {e}")
 
 
 def main():
