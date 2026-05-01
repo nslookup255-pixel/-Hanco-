@@ -1,11 +1,10 @@
 import sys
 
-from core.lexer import Lexer
-from core.parser import Parser
-from core.vm import VM
+from hanco.core.lexer import Lexer
+from hanco.core.parser import Parser
+from hanco.core.vm import VM
 
-
-VERSION = "0.1.0"
+VERSION = "0.0.3"
 
 
 def run_file(path):
