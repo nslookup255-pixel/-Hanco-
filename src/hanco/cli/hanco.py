@@ -5,6 +5,11 @@ from hanco.core.parser import Parser
 from hanco.core.vm import VM
 from importlib.metadata import version, PackageNotFoundError
 
+try:
+    ver = version("hanco")
+except PackageNotFoundError:
+    ver = "dev"
+
 def run_file(path):
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -21,7 +26,7 @@ def run_file(path):
 
 
 def repl():
-    print(f"한코 REPL v{VERSION}")
+    print(f"한코 REPL v{ver}")
     print("종료하려면 exit 입력\n")
 
     vm = VM()
@@ -69,10 +74,6 @@ def main():
         repl()
 
     elif cmd == "version":
-        try:
-            ver = version("hanco")
-        except PackageNotFoundError:
-            ver = "dev"
         print(ver)
         
     else:
