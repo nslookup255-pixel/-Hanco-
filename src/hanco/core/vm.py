@@ -1,116 +1,159 @@
+# -*- coding: utf-8 -*-
+
+from .ast_nodes import (
+    Assign,
+    Binary,
+    Break,
+    Call,
+    Continue,
+    ForLoop,
+    Function,
+    If,
+    Index,
+    IndexAssign,
+    ListDecl,
+    Literal,
+    MethodCall,
+    Program,
+    Return,
+    Var,
+    VarDecl,
+    WhileLoop,
+)
+
+
+TYPE_STRING = "문자열"
+TYPE_INT = "숫자"
+TYPE_FLOAT = "실수"
+TYPE_BOOL = "참거짓"
+TYPE_LIST = "목록"
+TYPE_ANY = "-"
+
+BUILTIN_PRINT = "출력"
+BUILTIN_INPUT = "입력"
+BUILTIN_LENGTH = "길이"
+BUILTIN_TYPE_OF = "자료형"
+BUILTIN_EXISTS = "있는가"
+BUILTIN_MISSING = "없는가"
+BUILTIN_IS_NUMBER = "숫자인가"
+BUILTIN_IS_INTEGER = "정수인가"
+
+METHOD_SLICE = "자르기"
+METHOD_APPEND = "추가"
+METHOD_REMOVE = "제거"
+METHOD_CONTAINS = "포함"
+METHOD_STRIP = "제거앞뒤공백"
+METHOD_SPLIT = "나누기"
+
+BOOL_TRUE = "참"
+BOOL_FALSE = "거짓"
+LOGIC_AND = "그리고"
+LOGIC_OR = "또는"
+
+
+class ReturnSignal(Exception):
+    def __init__(self, value):
+        self.value = value
+
+
+class BreakSignal(Exception):
+    pass
+
+
+class ContinueSignal(Exception):
+    pass
+
+
 class VM:
-    def __init__(self,code):
-        self.code=code
-        self.pc=0
-        self.stack=[]
-        self.call=[]
-        self.frame={
-            "vars": {},
-            "var_types": {},
-            "stack_base": 0,
-            "name": "<main>",
-        }
-        self.labels={}
-        self.funcs={}
-
-        # 출력 콜백: GUI 환경에서 콘솔 패널로 교체 가능
-        # 기본값은 터미널 print()
+    def __init__(self):
         self.output_handler = print
-
-        # 입력 콜백: GUI 환경에서 인라인 입력창으로 교체 가능
-        # 기본값은 터미널 input()
         self.input_handler = input
+        self.globals = {}
+        self.global_var_types = {}
+        self.functions = {}
+        self.frames = []
 
-        for i,(o,a) in enumerate(code):
-            if o=="LABEL": self.labels[a]=i
-            if o=="FUNC":
-                name, params = a
-                self.funcs[name] = {
-                    "pc": i + 1,
-                    "params": params,
-                }
-
-    def format_value(self,v):
-        if isinstance(v,list):
-            return "(" + ", ".join(str(self.format_value(x)) for x in v) + ")"
-        if isinstance(v,bool):
-            return "참" if v else "거짓"
-        return v
+    def format_value(self, value):
+        if isinstance(value, list):
+            return "(" + ", ".join(str(self.format_value(item)) for item in value) + ")"
+        if isinstance(value, bool):
+            return BOOL_TRUE if value else BOOL_FALSE
+        return value
 
     def stringify_value(self, value):
         return str(self.format_value(value))
 
     def type_name_of(self, value):
         if isinstance(value, bool):
-            return "참거짓"
+            return TYPE_BOOL
         if isinstance(value, int):
-            return "숫자"
+            return TYPE_INT
         if isinstance(value, float):
-            return "실수"
+            return TYPE_FLOAT
         if isinstance(value, str):
-            return "문자"
+            return TYPE_STRING
         if isinstance(value, list):
-            return "목록"
+            return TYPE_LIST
         return None
 
+    def type_label_of(self, value):
+        return self.type_name_of(value) 또는 "없음"
+
     def ensure_type(self, expected_type, value, var_name):
-        if expected_type == "-":
+        if expected_type == TYPE_ANY:
             return
 
         actual_type = self.type_name_of(value)
         if actual_type != expected_type:
             raise Exception(
                 f"변수 '{var_name}'에는 {expected_type} 자료형만 저장할 수 있습니다. "
-                f"(현재 값: {actual_type})"
+                f"(현재 값 타입: {actual_type})"
             )
 
     def coerce_value(self, expected_type, value, var_name):
-        if expected_type == "-" or expected_type is None:
+        if expected_type in {TYPE_ANY, None}:
             return value
 
         if self.type_name_of(value) == expected_type:
             return value
 
-        if expected_type == "문자":
+        if expected_type == TYPE_STRING:
             return str(value)
 
-        if expected_type == "숫자":
-            if isinstance(value, str):
-                try:
-                    return int(value.strip())
-                except ValueError as exc:
-                    raise Exception(
-                        f"입력값을 숫자로 변환할 수 없습니다. (변수: {var_name}, 값: {value})"
-                    ) from exc
-
-        if expected_type == "실수":
-            if isinstance(value, str):
-                try:
-                    return float(value.strip())
-                except ValueError as exc:
-                    raise Exception(
-                        f"입력값을 실수로 변환할 수 없습니다. (변수: {var_name}, 값: {value})"
-                    ) from exc
-
-        if expected_type == "참거짓":
-            if isinstance(value, str):
-                normalized = value.strip().lower()
-                if normalized in {"참", "true", "1", "yes", "y"}:
-                    return True
-                if normalized in {"거짓", "false", "0", "no", "n"}:
-                    return False
+        if expected_type == TYPE_INT 및 isinstance(value, str):
+            try:
+                return int(value.strip())
+            except ValueError as exc:
                 raise Exception(
-                    f"입력값을 참거짓으로 변환할 수 없습니다. (변수: {var_name}, 값: {value})"
-                )
+                    f"입력값을 숫자로 변환할 수 없습니다. (변수: {var_name}, 값: {value})"
+                ) from exc
+
+        if expected_type == TYPE_FLOAT 및 isinstance(value, str):
+            try:
+                return float(value.strip())
+            except ValueError as exc:
+                raise Exception(
+                    f"입력값을 실수로 변환할 수 없습니다. (변수: {var_name}, 값: {value})"
+                ) from exc
+
+        if expected_type == TYPE_BOOL 및 isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {BOOL_TRUE, "true", "1", "yes", "y"}:
+                return True
+            if normalized in {BOOL_FALSE, "false", "0", "no", "n"}:
+                return False
+            raise Exception(
+                f"입력값을 참거짓으로 변환할 수 없습니다. (변수: {var_name}, 값: {value})"
+            )
 
         self.ensure_type(expected_type, value, var_name)
         return value
 
     def convert_value(self, type_name, value):
-        if type_name == "문자":
+        if type_name == TYPE_STRING:
             return self.stringify_value(value)
 
-        if type_name == "숫자":
+        if type_name == TYPE_INT:
             if isinstance(value, bool):
                 return int(value)
             if isinstance(value, int):
@@ -123,7 +166,7 @@ class VM:
                 except ValueError as exc:
                     raise Exception(f"값을 숫자로 변환할 수 없습니다. (값: {value})") from exc
 
-        if type_name == "실수":
+        if type_name == TYPE_FLOAT:
             if isinstance(value, bool):
                 return float(value)
             if isinstance(value, (int, float)):
@@ -134,499 +177,376 @@ class VM:
                 except ValueError as exc:
                     raise Exception(f"값을 실수로 변환할 수 없습니다. (값: {value})") from exc
 
-        if type_name == "참거짓":
+        if type_name == TYPE_BOOL:
             if isinstance(value, bool):
                 return value
             if isinstance(value, (int, float)):
                 return bool(value)
             if isinstance(value, str):
                 normalized = value.strip().lower()
-                if normalized in {"참", "true", "1", "yes", "y"}:
+                if normalized in {BOOL_TRUE, "true", "1", "yes", "y"}:
                     return True
-                if normalized in {"거짓", "false", "0", "no", "n", ""}:
+                if normalized in {BOOL_FALSE, "false", "0", "no", "n", ""}:
                     return False
                 raise Exception(f"값을 참거짓으로 변환할 수 없습니다. (값: {value})")
 
         raise Exception(f"지원하지 않는 자료형 변환입니다. ({type_name})")
 
     def current_vars(self):
-        return self.frame["vars"]
+        if self.frames:
+            return self.frames[-1]["vars"]
+        return self.globals
 
     def current_var_types(self):
-        return self.frame["var_types"]
+        if self.frames:
+            return self.frames[-1]["var_types"]
+        return self.global_var_types
 
-    def run(self):
-        while self.pc<len(self.code):
-            op,arg=self.code[self.pc]
+    def resolve_var(self, name):
+        for frame in reversed(self.frames):
+            if name in frame["vars"]:
+                return frame["vars"][name]
+        if name in self.globals:
+            return self.globals[name]
+        raise Exception(f"선언하지 않은 변수 '{name}'를 찾을 수 없습니다.")
 
-            if op=="PUSH":
-                self.stack.append(arg)
+    def resolve_var_type(self, name):
+        for frame in reversed(self.frames):
+            if name in frame["var_types"]:
+                return frame["var_types"][name]
+        if name in self.global_var_types:
+            return self.global_var_types[name]
+        return None
 
-            elif op=="LOAD":
-                if arg not in self.current_vars():
-                    raise Exception(f"선언되지 않은 변수 '{arg}' 를 읽을 수 없습니다.")
-                self.stack.append(self.current_vars()[arg])
+    def assign_var(self, name, value):
+        for frame in reversed(self.frames):
+            if name in frame["vars"]:
+                expected_type = frame["var_types"].get(name, TYPE_ANY)
+                value = self.coerce_value(expected_type, value, name)
+                self.ensure_type(expected_type, value, name)
+                frame["vars"][name] = value
+                return value
 
-            elif op=="STORE":
-                self.current_vars()[arg]=self.stack.pop()
-                self.current_var_types().setdefault(arg, "-")
+        if name in self.globals:
+            expected_type = self.global_var_types.get(name, TYPE_ANY)
+            value = self.coerce_value(expected_type, value, name)
+            self.ensure_type(expected_type, value, name)
+            self.globals[name] = value
+            return value
 
-            elif op=="DECLARE":
-                name, type_name = arg
-                value = self.stack.pop()
-                value = self.coerce_value(type_name, value, name)
-                self.ensure_type(type_name, value, name)
-                self.current_vars()[name] = value
-                self.current_var_types()[name] = type_name
+        raise Exception(f"선언하지 않은 변수 '{name}'에 값을 대입할 수 없습니다.")
 
-            elif op=="ASSIGN":
-                value = self.stack.pop()
-                if arg not in self.current_var_types():
-                    raise Exception(f"선언되지 않은 변수 '{arg}' 에 값을 대입할 수 없습니다.")
-                value = self.coerce_value(self.current_var_types()[arg], value, arg)
-                self.ensure_type(self.current_var_types()[arg], value, arg)
-                self.current_vars()[arg] = value
+    def declare_var(self, name, type_name, value):
+        value = self.coerce_value(type_name, value, name)
+        self.ensure_type(type_name, value, name)
+        self.current_vars()[name] = value
+        self.current_var_types()[name] = type_name
+        return value
 
-            elif op=="MAKE_LIST":
-                items=[self.stack.pop() for _ in range(arg)][::-1]
-                self.stack.append(items)
+    def run(self, ast):
+        return self.eval_node(ast)
 
-            elif op=="INDEX":
-                index = self.stack.pop()
-                target = self.stack.pop()
+    def eval_node(self, node):
+        if isinstance(node, Program):
+            return self.eval_program(node)
+        if isinstance(node, Function):
+            self.functions[node.n] = node
+            return None
+        if isinstance(node, Return):
+            value = self.eval_expr(node.v)
+            raise ReturnSignal(value)
+        if isinstance(node, If):
+            return self.eval_if(node)
+        if isinstance(node, WhileLoop):
+            return self.eval_while(node)
+        if isinstance(node, ForLoop):
+            return self.eval_for(node)
+        if isinstance(node, Break):
+            raise BreakSignal()
+        if isinstance(node, Continue):
+            raise ContinueSignal()
+        if isinstance(node, ListDecl):
+            items = [self.eval_expr(item) for item in node.items]
+            return self.declare_var(node.name, TYPE_LIST, items)
+        if isinstance(node, VarDecl):
+            value = self.eval_expr(node.value)
+            return self.declare_var(node.name, node.type_name, value)
+        if isinstance(node, Assign):
+            value = self.eval_expr(node.value)
+            return self.assign_var(node.name, value)
+        if isinstance(node, IndexAssign):
+            target = self.eval_expr(node.target)
+            index = self.eval_expr(node.index)
+            value = self.eval_expr(node.value)
+            self.assign_index(target, index, value)
+            return value
+        if isinstance(node, Call):
+            return self.eval_call(node.n, node.a)
 
-                if not isinstance(target, list):
-                    raise Exception("리스트가 아닌 값에는 인덱싱을 사용할 수 없습니다.")
-                if not isinstance(index, int):
-                    raise Exception("리스트 인덱스는 숫자여야 합니다.")
-                if index < 0 or index >= len(target):
-                    raise Exception(f"리스트 인덱스 범위를 벗어났습니다. (인덱스: {index})")
+        return self.eval_expr(node)
 
-                self.stack.append(target[index])
+    def eval_program(self, program):
+        result = None
+        for statement in program.s:
+            result = self.eval_node(statement)
+        return result
 
-            elif op=="INDEX_ASSIGN":
-                value = self.stack.pop()
-                index = self.stack.pop()
-                target = self.stack.pop()
+    def eval_block(self, statements):
+        result = None
+        for statement in statements:
+            result = self.eval_node(statement)
+        return result
 
-                if not isinstance(target, list):
-                    raise Exception("리스트가 아닌 값에는 인덱싱 대입을 사용할 수 없습니다.")
-                if not isinstance(index, int):
-                    raise Exception("리스트 인덱스는 숫자여야 합니다.")
-                if index < 0 or index >= len(target):
-                    raise Exception(f"리스트 인덱스 범위를 벗어났습니다. (인덱스: {index})")
+    def eval_if(self, node):
+        for condition, body in node.브랜치들:
+            if self.truthy(self.eval_expr(condition)):
+                return self.eval_block(body)
+        return self.eval_block(node.else_branch)
 
-                target[index] = value
-
-            elif op=="METHOD_CALL":
-                method, argc = arg
-                args = [self.stack.pop() for _ in range(argc)][::-1]
-                target = self.stack.pop()
-
-                if method == "자르기":
-                    if argc != 2:
-                        raise Exception("자르기 함수는 시작과 끝 인자를 받아야 합니다.")
-                    start, end = args
-                    if not isinstance(start, int) or not isinstance(end, int):
-                        raise Exception("자르기 범위는 숫자여야 합니다.")
-                    if isinstance(target, (list, str)):
-                        self.stack.append(target[start:end])
-                    else:
-                        raise Exception("자르기 함수는 문자열 또는 리스트에만 사용할 수 있습니다.")
-
-                elif isinstance(target, list):
-                    if method == "추가":
-                        if argc != 1:
-                            raise Exception("목록 추가 함수는 인자를 1개 받아야 합니다.")
-                        target.append(args[0])
-                        self.stack.append(target)
-
-                    elif method == "삭제":
-                        if argc == 0:
-                            if not target:
-                                raise Exception("빈 리스트에서는 삭제할 수 없습니다.")
-                            self.stack.append(target.pop())
-                        elif argc == 1:
-                            index = args[0]
-                            if not isinstance(index, int):
-                                raise Exception("목록 삭제 인덱스는 숫자여야 합니다.")
-                            if index < 0 or index >= len(target):
-                                raise Exception(f"리스트 인덱스 범위를 벗어났습니다. (인덱스: {index})")
-                            self.stack.append(target.pop(index))
-                        else:
-                            raise Exception("목록 삭제 함수는 인자를 0개 또는 1개만 받습니다.")
-
-                    else:
-                        raise Exception(f"지원하지 않는 목록 함수입니다. ({method})")
-
-                elif isinstance(target, str):
-                    if method == "포함":
-                        if argc != 1:
-                            raise Exception("문자열 포함 함수는 인자를 1개 받아야 합니다.")
-                        self.stack.append(self.stringify_value(args[0]) in target)
-
-                    elif method == "제거":
-                        if argc != 0:
-                            raise Exception("문자열 제거 함수는 인자를 받지 않습니다.")
-                        self.stack.append(target.strip())
-
-                    elif method == "나누기":
-                        if argc != 1:
-                            raise Exception("문자열 나누기 함수는 인자를 1개 받아야 합니다.")
-                        self.stack.append(target.split(self.stringify_value(args[0])))
-
-                    else:
-                        raise Exception(f"지원하지 않는 문자열 함수입니다. ({method})")
-
-                else:
-                    raise Exception(f"지원하지 않는 메서드 호출입니다. ({method})")
-
-            elif op in ["+","-","*","/","%","==","!=","<",">","<=",">="]:
-                b=self.stack.pop()
-                a=self.stack.pop()
-                if op == "+" and (isinstance(a, str) or isinstance(b, str)):
-                    self.stack.append(self.stringify_value(a) + self.stringify_value(b))
-                else:
-                    self.stack.append(eval(f"a {op} b"))
-
-            elif op=="그리고":
-                b=self.stack.pop()
-                a=self.stack.pop()
-                self.stack.append(bool(a) and bool(b))
-
-            elif op=="또는":
-                b=self.stack.pop()
-                a=self.stack.pop()
-                self.stack.append(bool(a) or bool(b))
-
-
-            elif op=="CALL":
-                name, argc = arg
-
-                if name=="출력":
-                    values = [self.stack.pop() for _ in range(argc)][::-1]
-                    print(" ".join(str(self.format_value(value)) for value in values))
-                    self.pc+=1
-                    continue
-
-                if name=="입력":
-                    values = [self.stack.pop() for _ in range(argc)][::-1]
-                    prompt = " ".join(str(self.format_value(value)) for value in values)
-                    self.stack.append(input(prompt))
-                    self.pc+=1
-                    continue
-
-                if name=="길이":
-                    if argc != 1:
-                        raise Exception("길이 함수는 인자를 1개만 받습니다.")
-                    value = self.stack.pop()
-                    if not isinstance(value, (str, list)):
-                        raise Exception("길이 함수는 문자열 또는 리스트에만 사용할 수 있습니다.")
-                    self.stack.append(len(value))
-                    self.pc += 1
-                    continue
-
-                if name in {"문자", "숫자", "실수", "참거짓"}:
-                    if argc != 1:
-                        raise Exception(f"자료형 변환 함수 '{name}' 는 인자를 1개만 받습니다.")
-                    value = self.stack.pop()
-                    self.stack.append(self.convert_value(name, value))
-                    self.pc += 1
-                    continue
-
-                if name not in self.funcs:
-                    raise Exception(f"정의되지 않은 함수 '{name}' 입니다.")
-
-                func_info = self.funcs[name]
-                expected_argc = len(func_info["params"])
-                if argc != expected_argc:
-                    raise Exception(
-                        f"함수 '{name}' 호출 인자 수가 맞지 않습니다. "
-                        f"(필요: {expected_argc}, 전달: {argc})"
-                    )
-
-                self.call.append((self.pc, self.frame))
-                self.frame = {
-                    "vars": {},
-                    "var_types": {},
-                    "stack_base": len(self.stack) - argc,
-                    "name": name,
-                }
-                self.pc=func_info["pc"]
+    def eval_while(self, node):
+        result = None
+        while self.truthy(self.eval_expr(node.condition)):
+            try:
+                result = self.eval_block(node.body)
+            except ContinueSignal:
                 continue
+            except BreakSignal:
+                break
+        return result
 
-            elif op=="RET":
-                return_value = None
-                if len(self.stack) > self.frame["stack_base"]:
-                    return_value = self.stack.pop()
+    def eval_for(self, node):
+        start = self.eval_expr(node.start)
+        end = self.eval_expr(node.end)
 
-                while len(self.stack) > self.frame["stack_base"]:
-                    self.stack.pop()
+        if not isinstance(start, int) 또는 not isinstance(end, int):
+            raise Exception("반복문 범위는 숫자여야 합니다.")
 
-                if not self.call:
-                    if return_value is not None:
-                        self.stack.append(return_value)
-                    return
-                self.pc,self.frame=self.call.pop()
-                if return_value is not None:
-                    self.stack.append(return_value)
+        step = 1 if start <= end else -1
 
-            elif op=="JMP":
-                self.pc=self.labels[arg]
-                continue
+        if self.resolve_var_type(node.var_name) is None:
+            self.declare_var(node.var_name, TYPE_INT, start)
+        else:
+            self.assign_var(node.var_name, start)
 
-            elif op=="JMP_IF_FALSE":
-                if not self.stack.pop():
-                    self.pc=self.labels[arg]
-                    continue
+        result = None
+        while True:
+            current = self.resolve_var(node.var_name)
+            if step == 1 및 current > end:
+                break
+            if step == -1 및 current < end:
+                break
 
-            self.pc+=1
-    def step(self):
-        """
-        명령어 한 개를 실행합니다.
-        계속 실행 가능하면 True, 종료(코드 끝 or RET)면 False 를 반환합니다.
-        """
-        if self.pc >= len(self.code):
-            return False
+            try:
+                result = self.eval_block(node.body)
+            except ContinueSignal:
+                pass
+            except BreakSignal:
+                break
 
-        op, arg = self.code[self.pc]
+            self.assign_var(node.var_name, current + step)
 
-        # JMP 계열은 내부에서 pc 를 직접 갱신 후 return 하므로
-        # 여기서 미리 +1 하지 않습니다.
-        advanced = self._exec(op, arg)
+        return result
 
-        if advanced is None:    # 일반 명령: pc 를 1 전진
-            self.pc += 1
-        # advanced == "jumped" 인 경우 _exec 내부에서 이미 pc 설정 완료
+    def eval_expr(self, node):
+        if isinstance(node, Literal):
+            return node.v
+        if isinstance(node, Var):
+            return self.resolve_var(node.n)
+        if isinstance(node, Binary):
+            return self.eval_binary(node)
+        if isinstance(node, Call):
+            return self.eval_call(node.n, node.a)
+        if isinstance(node, Index):
+            target = self.eval_expr(node.target)
+            index = self.eval_expr(node.index)
+            return self.read_index(target, index)
+        if isinstance(node, MethodCall):
+            target = self.eval_expr(node.target)
+            args = [self.eval_expr(arg) for arg in node.args]
+            return self.eval_method_call(target, node.method, args)
 
-        return self.pc <= len(self.code)  # 끝 이후면 False
+        raise Exception(f"지원하지 않는 AST 노드입니다. ({입력(node).__name__})")
 
-    # ── 내부 실행 엔진 ─────────────────────────────────────────────────────
+    def eval_binary(self, node):
+        left = self.eval_expr(node.l)
+        right = self.eval_expr(node.r)
+        op = node.o
 
-    def _exec(self, op: str, arg) -> str | None:
-        """
-        명령어(op, arg) 한 개를 실행합니다.
+        if op == "+" 및 (isinstance(left, str) 또는 isinstance(right, str)):
+            return self.stringify_value(left) + self.stringify_value(right)
+        if op == "<<":
+            return left < right
+        if op == ">>":
+            return left > right
+        if op == "<<=":
+            return left <= right
+        if op == ">>=":
+            return left >= right
+        if op == LOGIC_AND:
+            return bool(left) 및 bool(right)
+        if op == LOGIC_OR:
+            return bool(left) 또는 bool(right)
+        if op == "+":
+            return left + right
+        if op == "-":
+            return left - right
+        if op == "*":
+            return left * right
+        if op == "/":
+            return left / right
+        if op == "%":
+            return left % right
+        if op == "==":
+            return left == right
+        if op == "!=":
+            return left != right
 
-        Returns:
-            None     — 호출자가 pc += 1 을 처리해야 합니다.
-            "jumped" — 이미 pc 가 갱신됐습니다 (JMP, CALL, RET 등).
-        """
-        if op == "PUSH":
-            self.stack.append(arg)
+        raise Exception(f"지원하지 않는 연산자입니다. ({op})")
 
-        elif op == "LOAD":
-            if arg not in self.current_vars():
-                raise Exception(f"선언되지 않은 변수 '{arg}' 를 읽을 수 없습니다.")
-            self.stack.append(self.current_vars()[arg])
+    def eval_call(self, name, arg_nodes):
+        args = [self.eval_expr(arg) for arg in arg_nodes]
 
-        elif op == "STORE":
-            self.current_vars()[arg] = self.stack.pop()
-            self.current_var_types().setdefault(arg, "-")
+        if name == BUILTIN_PRINT:
+            self.output_handler(" ".join(str(self.format_value(value)) for value in args))
+            return None
 
-        elif op == "DECLARE":
-            name, type_name = arg
-            value = self.stack.pop()
-            value = self.coerce_value(type_name, value, name)
-            self.ensure_type(type_name, value, name)
-            self.current_vars()[name] = value
-            self.current_var_types()[name] = type_name
+        if name == BUILTIN_INPUT:
+            prompt = " ".join(str(self.format_value(value)) for value in args)
+            return self.input_handler(prompt)
 
-        elif op == "ASSIGN":
-            value = self.stack.pop()
-            if arg not in self.current_var_types():
-                raise Exception(f"선언되지 않은 변수 '{arg}' 에 값을 대입할 수 없습니다.")
-            value = self.coerce_value(self.current_var_types()[arg], value, arg)
-            self.ensure_type(self.current_var_types()[arg], value, arg)
-            self.current_vars()[arg] = value
+        if name == BUILTIN_LENGTH:
+            if len(args) != 1:
+                raise Exception("길이 함수는 인자를 1개만 받습니다.")
+            value = args[0]
+            if not isinstance(value, (str, list)):
+                raise Exception("길이 함수는 문자열 또는 목록에만 사용할 수 있습니다.")
+            return len(value)
 
-        elif op == "MAKE_LIST":
-            items = [self.stack.pop() for _ in range(arg)][::-1]
-            self.stack.append(items)
+        if name == BUILTIN_TYPE_OF:
+            if len(args) != 1:
+                raise Exception("자료형 함수는 인자를 1개만 받습니다.")
+            return self.type_label_of(args[0])
 
-        elif op == "INDEX":
-            index  = self.stack.pop()
-            target = self.stack.pop()
-            if not isinstance(target, list):
-                raise Exception("리스트가 아닌 값에는 인덱싱을 사용할 수 없습니다.")
-            if not isinstance(index, int):
-                raise Exception("리스트 인덱스는 숫자여야 합니다.")
-            if index < 0 or index >= len(target):
-                raise Exception(f"리스트 인덱스 범위를 벗어났습니다. (인덱스: {index})")
-            self.stack.append(target[index])
+        if name == BUILTIN_EXISTS:
+            if len(args) != 1:
+                raise Exception("있는가 함수는 인자를 1개만 받습니다.")
+            return args[0] is not None
 
-        elif op == "INDEX_ASSIGN":
-            value  = self.stack.pop()
-            index  = self.stack.pop()
-            target = self.stack.pop()
-            if not isinstance(target, list):
-                raise Exception("리스트가 아닌 값에는 인덱싱 대입을 사용할 수 없습니다.")
-            if not isinstance(index, int):
-                raise Exception("리스트 인덱스는 숫자여야 합니다.")
-            if index < 0 or index >= len(target):
-                raise Exception(f"리스트 인덱스 범위를 벗어났습니다. (인덱스: {index})")
-            target[index] = value
+        if name == BUILTIN_MISSING:
+            if len(args) != 1:
+                raise Exception("없는가 함수는 인자를 1개만 받습니다.")
+            return args[0] is None
 
-        elif op == "METHOD_CALL":
-            method, argc = arg
-            args   = [self.stack.pop() for _ in range(argc)][::-1]
-            target = self.stack.pop()
+        if name == BUILTIN_IS_NUMBER:
+            if len(args) != 1:
+                raise Exception("숫자인가 함수는 인자를 1개만 받습니다.")
+            return isinstance(args[0], (int, float)) 및 not isinstance(args[0], bool)
 
-            if method == "자르기":
-                if argc != 2:
-                    raise Exception("자르기 함수는 시작과 끝 인자를 받아야 합니다.")
-                start, end = args
-                if not isinstance(start, int) or not isinstance(end, int):
-                    raise Exception("자르기 범위는 숫자여야 합니다.")
-                if isinstance(target, (list, str)):
-                    self.stack.append(target[start:end])
-                else:
-                    raise Exception("자르기 함수는 문자열 또는 리스트에만 사용할 수 있습니다.")
+        if name == BUILTIN_IS_INTEGER:
+            if len(args) != 1:
+                raise Exception("정수인가 함수는 인자를 1개만 받습니다.")
+            return isinstance(args[0], int) 및 not isinstance(args[0], bool)
 
-            elif isinstance(target, list):
-                if method == "추가":
-                    if argc != 1:
-                        raise Exception("목록 추가 함수는 인자를 1개 받아야 합니다.")
-                    target.append(args[0])
-                    self.stack.append(target)
-                elif method == "삭제":
-                    if argc == 0:
-                        if not target:
-                            raise Exception("빈 리스트에서는 삭제할 수 없습니다.")
-                        self.stack.append(target.pop())
-                    elif argc == 1:
-                        index = args[0]
-                        if not isinstance(index, int):
-                            raise Exception("목록 삭제 인덱스는 숫자여야 합니다.")
-                        if index < 0 or index >= len(target):
-                            raise Exception(f"리스트 인덱스 범위를 벗어났습니다. (인덱스: {index})")
-                        self.stack.append(target.pop(index))
-                    else:
-                        raise Exception("목록 삭제 함수는 인자를 0개 또는 1개만 받습니다.")
-                else:
-                    raise Exception(f"지원하지 않는 목록 함수입니다. ({method})")
+        if name in {TYPE_STRING, TYPE_INT, TYPE_FLOAT, TYPE_BOOL}:
+            if len(args) != 1:
+                raise Exception(f"자료형 변환 함수 '{name}'는 인자를 1개만 받습니다.")
+            return self.convert_value(name, args[0])
 
-            elif isinstance(target, str):
-                if method == "포함":
-                    if argc != 1:
-                        raise Exception("문자열 포함 함수는 인자를 1개 받아야 합니다.")
-                    self.stack.append(self.stringify_value(args[0]) in target)
-                elif method == "제거":
-                    if argc != 0:
-                        raise Exception("문자열 제거 함수는 인자를 받지 않습니다.")
-                    self.stack.append(target.strip())
-                elif method == "나누기":
-                    if argc != 1:
-                        raise Exception("문자열 나누기 함수는 인자를 1개 받아야 합니다.")
-                    self.stack.append(target.split(self.stringify_value(args[0])))
-                else:
-                    raise Exception(f"지원하지 않는 문자열 함수입니다. ({method})")
-            else:
-                raise Exception(f"지원하지 않는 메서드 호출입니다. ({method})")
+        if name not in self.functions:
+            raise Exception(f"정의하지 않은 함수 '{name}' 입니다.")
 
-        elif op in ["+", "-", "*", "/", "%", "==", "!=", "<", ">", "<=", ">="]:
-            b = self.stack.pop()
-            a = self.stack.pop()
-            if op == "+" and (isinstance(a, str) or isinstance(b, str)):
-                self.stack.append(self.stringify_value(a) + self.stringify_value(b))
-            else:
-                self.stack.append(eval(f"a {op} b"))
+        func = self.functions[name]
+        if len(args) != len(func.p):
+            raise Exception(
+                f"함수 '{name}' 호출 인자 수가 맞지 않습니다. "
+                f"(필요: {len(func.p)}, 전달: {len(args)})"
+            )
 
-        elif op == "그리고":
-            b = self.stack.pop()
-            a = self.stack.pop()
-            self.stack.append(bool(a) and bool(b))
+        frame = {
+            "vars": dict(zip(func.p, args)),
+            "var_types": {param: TYPE_ANY for param in func.p},
+            "name": name,
+        }
+        self.frames.append(frame)
+        try:
+            self.eval_block(func.b)
+        except ReturnSignal as signal:
+            return signal.value
+        finally:
+            self.frames.pop()
+        return None
 
-        elif op == "또는":
-            b = self.stack.pop()
-            a = self.stack.pop()
-            self.stack.append(bool(a) or bool(b))
+    def eval_method_call(self, target, method, args):
+        if method == METHOD_SLICE:
+            if len(args) != 2:
+                raise Exception("자르기 함수는 시작과 끝 인자를 받아야 합니다.")
+            start, end = args
+            if not isinstance(start, int) 또는 not isinstance(end, int):
+                raise Exception("자르기 범위는 숫자여야 합니다.")
+            if isinstance(target, (list, str)):
+                return target[start:end]
+            raise Exception("자르기 함수는 문자열 또는 목록에만 사용할 수 있습니다.")
 
-        elif op == "CALL":
-            name, argc = arg
+        if isinstance(target, list):
+            if method == METHOD_APPEND:
+                if len(args) != 1:
+                    raise Exception("목록 추가 함수는 인자를 1개만 받습니다.")
+                target.append(args[0])
+                return target
 
-            if name == "출력":
-                values = [self.stack.pop() for _ in range(argc)][::-1]
-                self.output_handler(" ".join(str(self.format_value(v)) for v in values))
-                self.pc += 1
-                return "jumped"
+            if method == METHOD_REMOVE:
+                if len(args) == 0:
+                    if not target:
+                        raise Exception("빈 목록에서는 제거할 수 없습니다.")
+                    return target.pop()
+                if len(args) == 1:
+                    index = args[0]
+                    if not isinstance(index, int):
+                        raise Exception("목록 제거 인덱스는 숫자여야 합니다.")
+                    if index < 0 또는 index >= len(target):
+                        raise Exception(f"목록 인덱스 범위를 벗어났습니다. (인덱스: {index})")
+                    return target.pop(index)
+                raise Exception("목록 제거 함수는 인자를 0개 또는 1개만 받습니다.")
 
-            if name == "입력":
-                values = [self.stack.pop() for _ in range(argc)][::-1]
-                prompt = " ".join(str(self.format_value(v)) for v in values)
-                self.stack.append(self.input_handler(prompt))
-                self.pc += 1
-                return "jumped"
+            raise Exception(f"지원하지 않는 목록 함수입니다. ({method})")
 
-            if name == "길이":
-                if argc != 1:
-                    raise Exception("길이 함수는 인자를 1개만 받습니다.")
-                value = self.stack.pop()
-                if not isinstance(value, (str, list)):
-                    raise Exception("길이 함수는 문자열 또는 리스트에만 사용할 수 있습니다.")
-                self.stack.append(len(value))
-                self.pc += 1
-                return "jumped"
+        if isinstance(target, str):
+            if method == METHOD_CONTAINS:
+                if len(args) != 1:
+                    raise Exception("문자열 포함 함수는 인자를 1개만 받습니다.")
+                return self.stringify_value(args[0]) in target
 
-            if name in {"문자", "숫자", "실수", "참거짓"}:
-                if argc != 1:
-                    raise Exception(f"자료형 변환 함수 '{name}' 는 인자를 1개만 받습니다.")
-                value = self.stack.pop()
-                self.stack.append(self.convert_value(name, value))
-                self.pc += 1
-                return "jumped"
+            if method == METHOD_STRIP:
+                if args:
+                    raise Exception("문자열 공백제거 함수는 인자를 받지 않습니다.")
+                return target.strip()
 
-            if name not in self.funcs:
-                raise Exception(f"정의되지 않은 함수 '{name}' 입니다.")
+            if method == METHOD_SPLIT:
+                if len(args) != 1:
+                    raise Exception("문자열 나누기 함수는 인자를 1개만 받습니다.")
+                return target.split(self.stringify_value(args[0]))
 
-            func_info = self.funcs[name]
-            expected_argc = len(func_info["params"])
-            if argc != expected_argc:
-                raise Exception(
-                    f"함수 '{name}' 호출 인자 수가 맞지 않습니다. "
-                    f"(필요: {expected_argc}, 전달: {argc})"
-                )
+            raise Exception(f"지원하지 않는 문자열 함수입니다. ({method})")
 
-            self.call.append((self.pc + 1, self.frame))
-            self.frame = {
-                "vars": {},
-                "var_types": {},
-                "stack_base": len(self.stack) - argc,
-                "name": name,
-            }
-            self.pc = func_info["pc"]
-            return "jumped"
+        raise Exception(f"지원하지 않는 메서드 호출입니다. ({method})")
 
-        elif op == "RET":
-            return_value = None
-            if len(self.stack) > self.frame["stack_base"]:
-                return_value = self.stack.pop()
+    def read_index(self, target, index):
+        if not isinstance(target, list):
+            raise Exception("목록이 아닌 값에는 인덱싱을 사용할 수 없습니다.")
+        if not isinstance(index, int):
+            raise Exception("목록 인덱스는 숫자여야 합니다.")
+        if index < 0 또는 index >= len(target):
+            raise Exception(f"목록 인덱스 범위를 벗어났습니다. (인덱스: {index})")
+        return target[index]
 
-            while len(self.stack) > self.frame["stack_base"]:
-                self.stack.pop()
+    def assign_index(self, target, index, value):
+        if not isinstance(target, list):
+            raise Exception("목록이 아닌 값에는 인덱스 대입을 사용할 수 없습니다.")
+        if not isinstance(index, int):
+            raise Exception("목록 인덱스는 숫자여야 합니다.")
+        if index < 0 또는 index >= len(target):
+            raise Exception(f"목록 인덱스 범위를 벗어났습니다. (인덱스: {index})")
+        target[index] = value
 
-            if not self.call:
-                if return_value is not None:
-                    self.stack.append(return_value)
-                self.pc = len(self.code)   # 종료 표시
-                return "jumped"
-
-            self.pc, self.frame = self.call.pop()
-            if return_value is not None:
-                self.stack.append(return_value)
-            return "jumped"
-
-        elif op == "JMP":
-            self.pc = self.labels[arg]
-            return "jumped"
-
-        elif op == "JMP_IF_FALSE":
-            if not self.stack.pop():
-                self.pc = self.labels[arg]
-            else:
-                self.pc += 1
-            return "jumped"
-
-        elif op in ("LABEL", "FUNC"):
-            pass   # 실행 시점에는 무시
-
-        return None  # 호출자가 pc += 1 처리
+    def truthy(self, value):
+        return bool(value)
