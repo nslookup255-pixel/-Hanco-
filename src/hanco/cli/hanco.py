@@ -3,9 +3,7 @@ import sys
 from hanco.core.lexer import Lexer
 from hanco.core.parser import Parser
 from hanco.core.vm import VM
-
-VERSION = "0.0.3"
-
+from importlib.metadata import version, PackageNotFoundError
 
 def run_file(path):
     try:
@@ -71,8 +69,12 @@ def main():
         repl()
 
     elif cmd == "version":
-        print(f"Hanco v{VERSION}")
-
+        try:
+            ver = version("hanco")
+        except PackageNotFoundError:
+            ver = "dev"
+        print(ver)
+        
     else:
         print("알 수 없는 명령어")
 
