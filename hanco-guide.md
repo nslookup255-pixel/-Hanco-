@@ -47,34 +47,70 @@
 ```
 
 ---
-
+ 
 ## 2. 설치 및 시작
-
+ 
 ### 요구 사항
-
-- Python 3.8 이상
-
+ 
+- Python 3.10 이상
 ### 설치
-
+ 
+저장소를 클론한 뒤 `pip`로 설치합니다. 설치하면 `hanco` 명령어를 어디서든 사용할 수 있습니다.
+ 
 ```bash
 git clone https://github.com/nslookup255-pixel/-Hanco-
 cd -Hanco-
+pip install .
 ```
-
-### 실행
-
-`main.py` 안의 `code` 변수에 한코 코드를 작성한 뒤 실행합니다.
-
+ 
+### CLI 명령어
+ 
 ```bash
-python main.py
+hanco run <파일>      # .hanco 파일 실행
+hanco repl            # 대화형 REPL 실행
+hanco version         # 버전 확인
+hanco <파일>.hanco    # 파일 직접 실행 (단축 형태)
 ```
-
+ 
+### 파일 실행
+ 
+확장자 `.hanco`로 파일을 만들고 실행합니다.
+ 
+```bash
+# hello.hanco
+hanco run hello.hanco
+# 또는
+hanco hello.hanco
+```
+ 
+### REPL (대화형 모드)
+ 
+```bash
+hanco repl
+```
+ 
+```
+한코 REPL v0.1.0
+종료하려면 exit 입력
+ 
+>>> 출력<"안녕하세요!">
+안녕하세요!
+>>> exit
+```
+ 
 ### Hello, World!
-
+ 
+`hello.hanco` 파일을 만들고 아래 내용을 작성합니다.
+ 
 ```
-출력<"안녕하세요, 한코!">
+출력<"안녕, 세계!">
 ```
-
+ 
+```bash
+hanco run hello.hanco
+:: 출력: 안녕, 세계!
+```
+ 
 ---
 
 ## 3. 기본 문법 규칙
