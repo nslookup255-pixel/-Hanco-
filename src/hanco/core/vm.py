@@ -27,7 +27,7 @@ TYPE_INT = "숫자"
 TYPE_FLOAT = "실수"
 TYPE_BOOL = "참거짓"
 TYPE_LIST = "목록"
-TYPE_ANY = "-"
+TYPE_ANY = "자유"
 
 BUILTIN_PRINT = "출력"
 BUILTIN_INPUT = "입력"
