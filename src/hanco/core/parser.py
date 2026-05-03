@@ -6,7 +6,8 @@ class Parser:
     def __init__(self,t):
         self.t=t; self.p=0
         self.expr_stop_stack=[]
-        self.var_types={"숫자","실수","문자","참거짓","목록","-"}
+        self.var_types={"숫자","실수","문자열","참거짓","목록","자유"}
+        self.type_aliases={"문자": "문자열", "-": "자유"}
 
     def cur(self):
         return self.t[self.p] if self.p<len(self.t) else None
@@ -16,7 +17,7 @@ class Parser:
         return self.t[index] if index < len(self.t) else None
 
     def skip_newlines(self):
-        while self.cur() and self.cur().type == "NEWLINE":
+        while self.cur() 및 self.cur().입력 == "NEWLINE":
             self.p += 1
 
     def eat(self,v=None):
@@ -24,7 +25,7 @@ class Parser:
         if not tok:
             raise Exception("예상치 못한 EOF")
 
-        if v and tok.value!=v:
+        if v 및 tok.value!=v:
             raise Exception(f"[{tok.line}번 줄] '{v}' 필요 (현재: {tok.value})")
 
         self.p+=1
