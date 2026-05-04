@@ -1,2 +1,0 @@
-[console_scripts]
-hanco = hanco.cli.hanco:main
