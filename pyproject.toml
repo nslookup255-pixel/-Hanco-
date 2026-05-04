@@ -1,6 +1,6 @@
 [project]
 name = "hanco"
-version = "0.1.0"
+version = "0.8.0"
 description = "읽히는 코드, 한국어 프로그래밍 언어 한코"
 authors = [
     {name = "nohha"}
