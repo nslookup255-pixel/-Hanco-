@@ -1,8 +1,9 @@
 # 파일 라이브러리
-from pathlib import Path
 
 
 def _경로값(인자, 함수이름):
+    from pathlib import Path
+
     if len(인자) != 1:
         raise Exception(f"{함수이름} 함수는 경로 1개를 받아야 합니다.")
 
@@ -14,6 +15,8 @@ def _경로값(인자, 함수이름):
 
 
 def _경로와내용(인자, 함수이름):
+    from pathlib import Path
+
     if len(인자) != 2:
         raise Exception(f"{함수이름} 함수는 경로와 내용 2개를 받아야 합니다.")
 

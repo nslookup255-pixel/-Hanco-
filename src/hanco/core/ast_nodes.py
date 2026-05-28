@@ -1,5 +1,7 @@
 class Program:
-    def __init__(self, statements): self.statements = statements
+    def __init__(self, statements, line=None):
+        self.statements = statements
+        self.line = line
 
 class Function:
     def __init__(self, name, params, body, line=None):

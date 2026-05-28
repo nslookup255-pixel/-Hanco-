@@ -1,9 +1,9 @@
 # 시간 라이브러리
-from datetime import datetime
-import time
 
 
 def 현재(인자):
+    from datetime import datetime
+
     if 인자:
         raise Exception("시간:현재 함수는 인자를 받지 않습니다.")
 
@@ -11,6 +11,8 @@ def 현재(인자):
 
 
 def 대기(인자):
+    import time
+
     if len(인자) != 1:
         raise Exception("시간:대기 함수는 초 1개를 받아야 합니다.")
 
@@ -25,6 +27,8 @@ def 대기(인자):
 
 
 def 시간값(인자):
+    from datetime import datetime
+
     if 인자:
         raise Exception("시간:시간 함수는 인자를 받지 않습니다.")
 
@@ -32,6 +36,8 @@ def 시간값(인자):
 
 
 def 분(인자):
+    from datetime import datetime
+
     if 인자:
         raise Exception("시간:분 함수는 인자를 받지 않습니다.")
 
@@ -39,6 +45,8 @@ def 분(인자):
 
 
 def 초(인자):
+    from datetime import datetime
+
     if 인자:
         raise Exception("시간:초 함수는 인자를 받지 않습니다.")
 
@@ -46,6 +54,8 @@ def 초(인자):
 
 
 def 타임스탬프(인자):
+    import time
+
     if 인자:
         raise Exception("시간:타임스탬프 함수는 인자를 받지 않습니다.")
 

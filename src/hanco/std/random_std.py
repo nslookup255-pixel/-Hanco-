@@ -1,8 +1,9 @@
 # 랜덤 라이브러리
-import random
 
 
 def 무작위(인자):
+    import random
+
     if len(인자) != 2:
         raise Exception("랜덤:무작위 함수는 시작값과 끝값 2개를 받아야 합니다.")
 
@@ -14,6 +15,8 @@ def 무작위(인자):
 
 
 def 선택(인자):
+    import random
+
     if len(인자) != 1:
         raise Exception("랜덤:선택 함수는 목록 1개를 받아야 합니다.")
 
@@ -27,6 +30,8 @@ def 선택(인자):
 
 
 def 섞기(인자):
+    import random
+
     if len(인자) != 1:
         raise Exception("랜덤:섞기 함수는 목록 1개를 받아야 합니다.")
 
@@ -40,6 +45,8 @@ def 섞기(인자):
 
 
 def 실수(인자):
+    import random
+
     if 인자:
         raise Exception("랜덤:실수 함수는 인자를 받지 않습니다.")
 

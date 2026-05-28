@@ -18,7 +18,10 @@ class Parser:
         return self.tokens[index] if index < len(self.tokens) else None
 
     def skip_newlines(self):
-        while self.cur() and self.cur().type == "NEWLINE":
+        while True:
+            tok = self.cur()
+            if not tok or tok.type != "NEWLINE":
+                break
             self.pos += 1
 
     def eat(self, v=None):
@@ -87,10 +90,12 @@ class Parser:
         args = []
         self.push_expr_stops(")", ",")
         try:
-            if self.cur().value != ")":
+            tok = self.cur()
+            if tok.value != ")":
                 while True:
                     args.append(self.expr())
-                    if self.cur().value != ",":
+                    tok = self.cur()
+                    if tok.value != ",":
                         break
                     self.eat(",")
         finally:
@@ -119,10 +124,12 @@ class Parser:
         args = []
         self.push_expr_stops(")", ",")
         try:
-            if self.cur().value != ")":
+            tok = self.cur()
+            if tok.value != ")":
                 while True:
                     args.append(self.expr())
-                    if self.cur().value != ",":
+                    tok = self.cur()
+                    if tok.value != ",":
                         break
                     self.eat(",")
         finally:
@@ -131,12 +138,16 @@ class Parser:
         return args
 
     def parse_block(self):
-        if self.cur() and self.cur().value == "<":
+        tok = self.cur()
+        if tok and tok.value == "<":
             self.eat("<")
 
         body = []
         self.skip_newlines()
-        while self.cur() and self.cur().value != "~>" and self.cur().value != "아니면":
+        while True:
+            tok = self.cur()
+            if not tok or tok.value in ("~>", "아니면"):
+                break
             body.append(self.stmt())
             self.skip_newlines()
         self.eat("~>")
@@ -146,10 +157,14 @@ class Parser:
         self.eat("<")
         body = []
         self.skip_newlines()
-        while self.cur() and self.cur().value != "~>" and self.cur().value != "아니면":
+        while True:
+            tok = self.cur()
+            if not tok or tok.value in ("~>", "아니면"):
+                break
             body.append(self.stmt())
             self.skip_newlines()
-        if self.cur() and self.cur().value == "~>":
+        tok = self.cur()
+        if tok and tok.value == "~>":
             self.eat("~>")
         return body
 
@@ -192,10 +207,12 @@ class Parser:
         if type_name == "목록" and self.cur().value == "(":
             self.eat("(")
             items = []
-            if self.cur().value != ")":
+            tok = self.cur()
+            if tok.value != ")":
                 while True:
                     items.append(self.expr())
-                    if self.cur().value != ",":
+                    tok = self.cur()
+                    if tok.value != ",":
                         break
                     self.eat(",")
             self.eat(")")
@@ -228,8 +245,11 @@ class Parser:
         line = self.cur().line
         target = Var(self.eat().value, line)
 
-        while self.cur() and self.cur().value == "[":
-            index_line = self.cur().line
+        while True:
+            tok = self.cur()
+            if not tok or tok.value != "[":
+                break
+            index_line = tok.line
             self.eat("[")
             index = self.expr()
             self.eat("]")
@@ -252,8 +272,11 @@ class Parser:
         self.eat("인수")
 
         params = []
-        while self.cur().value != "<":
-            if self.cur().value != ",":
+        while True:
+            tok = self.cur()
+            if tok.value == "<":
+                break
+            if tok.value != ",":
                 params.append(self.eat().value)
             else:
                 self.eat(",")
@@ -275,10 +298,14 @@ class Parser:
         branches.append((cond, body))
         self.skip_newlines()
 
-        while self.cur() and self.cur().value == "아니면":
+        while True:
+            tok = self.cur()
+            if not tok or tok.value != "아니면":
+                break
             self.eat("아니면")
 
-            if self.cur().value == "[":
+            tok = self.cur()
+            if tok.value == "[":
                 self.eat("[")
                 cond = self.expr()
                 self.eat("]")
@@ -312,11 +339,10 @@ class Parser:
 
     def logic(self):
         left = self.equality()
-        while (
-            self.cur()
-            and not self.is_expr_stop(self.cur().value)
-            and self.cur().value in ["그리고", "또는"]
-        ):
+        while True:
+            tok = self.cur()
+            if not tok or self.is_expr_stop(tok.value) or tok.value not in ("그리고", "또는"):
+                break
             op_tok = self.eat()
             right = self.equality()
             left = Binary(left, op_tok.value, right, op_tok.line)
@@ -324,11 +350,10 @@ class Parser:
 
     def equality(self):
         left = self.comparison()
-        while (
-            self.cur()
-            and not self.is_expr_stop(self.cur().value)
-            and self.cur().value in ["==", "!="]
-        ):
+        while True:
+            tok = self.cur()
+            if not tok or self.is_expr_stop(tok.value) or tok.value not in ("==", "!="):
+                break
             op_tok = self.eat()
             right = self.comparison()
             left = Binary(left, op_tok.value, right, op_tok.line)
@@ -336,11 +361,10 @@ class Parser:
 
     def comparison(self):
         left = self.additive()
-        while (
-            self.cur()
-            and not self.is_expr_stop(self.cur().value)
-            and self.cur().value in ["<", ">", "<=", ">="]
-        ):
+        while True:
+            tok = self.cur()
+            if not tok or self.is_expr_stop(tok.value) or tok.value not in ("<", ">", "<=", ">="):
+                break
             op_tok = self.eat()
             right = self.additive()
             left = Binary(left, op_tok.value, right, op_tok.line)
@@ -348,11 +372,10 @@ class Parser:
 
     def additive(self):
         left = self.multiplicative()
-        while (
-            self.cur()
-            and not self.is_expr_stop(self.cur().value)
-            and self.cur().value in ["+", "-"]
-        ):
+        while True:
+            tok = self.cur()
+            if not tok or self.is_expr_stop(tok.value) or tok.value not in ("+", "-"):
+                break
             op_tok = self.eat()
             right = self.multiplicative()
             left = Binary(left, op_tok.value, right, op_tok.line)
@@ -360,11 +383,10 @@ class Parser:
 
     def multiplicative(self):
         left = self.term()
-        while (
-            self.cur()
-            and not self.is_expr_stop(self.cur().value)
-            and self.cur().value in ["*", "/", "%"]
-        ):
+        while True:
+            tok = self.cur()
+            if not tok or self.is_expr_stop(tok.value) or tok.value not in ("*", "/", "%"):
+                break
             op_tok = self.eat()
             right = self.term()
             left = Binary(left, op_tok.value, right, op_tok.line)
@@ -397,15 +419,19 @@ class Parser:
         else:
             raise Exception(f"[{tok.line}번 줄] 식 오류")
 
-        while self.cur() and self.cur().value in ["(", "[", ":"]:
-            if self.cur().value == "(":
+        while True:
+            tok = self.cur()
+            if not tok or tok.value not in ("(", "[", ":"):
+                break
+
+            if tok.value == "(":
                 if not isinstance(expr, Var):
                     break
                 expr = Call(expr.name, self.parse_call_args(), tok.line)
                 continue
 
-            if self.cur().value == "[":
-                index_line = self.cur().line
+            if tok.value == "[":
+                index_line = tok.line
                 self.eat("[")
                 index = self.expr()
                 self.eat("]")

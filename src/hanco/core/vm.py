@@ -90,6 +90,30 @@ class VM:
         self.functions = {}
         self.frames = []
         self.current_line = None
+        self._node_dispatch = {
+            Program: self.eval_program,
+            Function: self._exec_function,
+            Return: self._exec_return,
+            If: self.eval_if,
+            WhileLoop: self.eval_while,
+            ForLoop: self.eval_for,
+            Break: self._exec_break,
+            Continue: self._exec_continue,
+            Use: self._exec_use,
+            ListDecl: self._exec_list_decl,
+            VarDecl: self._exec_var_decl,
+            Assign: self._exec_assign,
+            IndexAssign: self._exec_index_assign,
+            Call: self._exec_call_node,
+        }
+        self._expr_dispatch = {
+            Literal: self._eval_literal,
+            Var: self._eval_var,
+            Binary: self.eval_binary,
+            Call: self._eval_call_expr,
+            Index: self._eval_index_expr,
+            MethodCall: self._eval_method_expr,
+        }
 
     def _raise(self, msg):
         if self.current_line:
@@ -266,54 +290,81 @@ class VM:
         self.current_var_types()[name] = TYPE_ANY
         return namespace
 
+    # --- Private node handlers ---
+
+    def _exec_function(self, node):
+        self.functions[node.name] = node
+        return None
+
+    def _exec_return(self, node):
+        raise ReturnSignal(self.eval_expr(node.value))
+
+    def _exec_break(self, node):
+        raise BreakSignal()
+
+    def _exec_continue(self, node):
+        raise ContinueSignal()
+
+    def _exec_use(self, node):
+        result = None
+        for name in node.names:
+            result = self.import_stdlib(name)
+        return result
+
+    def _exec_list_decl(self, node):
+        items = [self.eval_expr(item) for item in node.items]
+        return self.declare_var(node.name, TYPE_LIST, items)
+
+    def _exec_var_decl(self, node):
+        value = self.eval_expr(node.value)
+        return self.declare_var(node.name, node.type_name, value)
+
+    def _exec_assign(self, node):
+        value = self.eval_expr(node.value)
+        return self.assign_var(node.name, value)
+
+    def _exec_index_assign(self, node):
+        target = self.eval_expr(node.target)
+        index = self.eval_expr(node.index)
+        value = self.eval_expr(node.value)
+        self.assign_index(target, index, value)
+        return value
+
+    def _exec_call_node(self, node):
+        return self.eval_call(node.name, node.args)
+
+    # --- Private expr handlers ---
+
+    def _eval_literal(self, node):
+        return node.value
+
+    def _eval_var(self, node):
+        return self.resolve_var(node.name)
+
+    def _eval_call_expr(self, node):
+        return self.eval_call(node.name, node.args)
+
+    def _eval_index_expr(self, node):
+        target = self.eval_expr(node.target)
+        index = self.eval_expr(node.index)
+        return self.read_index(target, index)
+
+    def _eval_method_expr(self, node):
+        target = self.eval_expr(node.target)
+        args = [self.eval_expr(arg) for arg in node.args]
+        return self.eval_method_call(target, node.method, args)
+
+    # --- Core evaluation ---
+
     def run(self, ast):
         return self.eval_node(ast)
 
     def eval_node(self, node):
-        if hasattr(node, "line") and node.line:
+        if node.line:
             self.current_line = node.line
-
-        if isinstance(node, Program):
-            return self.eval_program(node)
-        if isinstance(node, Function):
-            self.functions[node.name] = node
-            return None
-        if isinstance(node, Return):
-            value = self.eval_expr(node.value)
-            raise ReturnSignal(value)
-        if isinstance(node, If):
-            return self.eval_if(node)
-        if isinstance(node, WhileLoop):
-            return self.eval_while(node)
-        if isinstance(node, ForLoop):
-            return self.eval_for(node)
-        if isinstance(node, Break):
-            raise BreakSignal()
-        if isinstance(node, Continue):
-            raise ContinueSignal()
-        if isinstance(node, Use):
-            result = None
-            for name in node.names:
-                result = self.import_stdlib(name)
-            return result
-        if isinstance(node, ListDecl):
-            items = [self.eval_expr(item) for item in node.items]
-            return self.declare_var(node.name, TYPE_LIST, items)
-        if isinstance(node, VarDecl):
-            value = self.eval_expr(node.value)
-            return self.declare_var(node.name, node.type_name, value)
-        if isinstance(node, Assign):
-            value = self.eval_expr(node.value)
-            return self.assign_var(node.name, value)
-        if isinstance(node, IndexAssign):
-            target = self.eval_expr(node.target)
-            index = self.eval_expr(node.index)
-            value = self.eval_expr(node.value)
-            self.assign_index(target, index, value)
-            return value
-        if isinstance(node, Call):
-            return self.eval_call(node.name, node.args)
-
+        handler = self._node_dispatch.get(type(node))
+        if handler:
+            return handler(node)
         return self.eval_expr(node)
 
     def eval_program(self, program):
@@ -359,13 +410,18 @@ class VM:
         else:
             self.assign_var(node.var_name, start)
 
+        vars_dict = self.current_vars()
+        var_name = node.var_name
+        current = start
+
         result = None
         while True:
-            current = self.resolve_var(node.var_name)
             if step == 1 and current > end:
                 break
             if step == -1 and current < end:
                 break
+
+            vars_dict[var_name] = current
 
             try:
                 result = self.eval_block(node.body)
@@ -374,31 +430,16 @@ class VM:
             except BreakSignal:
                 break
 
-            self.assign_var(node.var_name, current + step)
+            current = vars_dict[var_name] + step
 
         return result
 
     def eval_expr(self, node):
-        if hasattr(node, "line") and node.line:
+        if node.line:
             self.current_line = node.line
-
-        if isinstance(node, Literal):
-            return node.value
-        if isinstance(node, Var):
-            return self.resolve_var(node.name)
-        if isinstance(node, Binary):
-            return self.eval_binary(node)
-        if isinstance(node, Call):
-            return self.eval_call(node.name, node.args)
-        if isinstance(node, Index):
-            target = self.eval_expr(node.target)
-            index = self.eval_expr(node.index)
-            return self.read_index(target, index)
-        if isinstance(node, MethodCall):
-            target = self.eval_expr(node.target)
-            args = [self.eval_expr(arg) for arg in node.args]
-            return self.eval_method_call(target, node.method, args)
-
+        handler = self._expr_dispatch.get(type(node))
+        if handler:
+            return handler(node)
         self._raise(f"지원하지 않는 AST 노드입니다. ({type(node).__name__})")
 
     def eval_binary(self, node):
@@ -531,7 +572,7 @@ class VM:
                 if self.current_line and not msg.startswith("["):
                     raise Exception(f"[{self.current_line}번 줄] {msg}") from None
                 raise
-            except BaseException as exc:
+            except BaseException:
                 self._raise(f"표준 라이브러리 '{target.name}' 호출 중 알 수 없는 오류가 발생했습니다.")
 
             if not self.is_hanco_value(value):
@@ -545,7 +586,7 @@ class VM:
             if not isinstance(start, int) or not isinstance(end, int):
                 self._raise("자르기의 범위는 정수여야 합니다.")
             if isinstance(target, (list, str)):
-                return target[start:end]
+                return target[start:end + 1]
             self._raise(
                 f"자르기는 문자열 또는 목록에만 사용할 수 있습니다. "
                 f"(자료형: {self.type_label_of(target)})"
@@ -629,5 +670,3 @@ class VM:
 
     def truthy(self, value):
         return bool(value)
-
-
