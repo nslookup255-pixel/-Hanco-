@@ -57,6 +57,14 @@ class If:
         self.else_branch = else_branch
         self.line = line
 
+class Try:
+    def __init__(self, try_body, error_name, catch_body, finally_body, line=None):
+        self.try_body = try_body
+        self.error_name = error_name
+        self.catch_body = catch_body
+        self.finally_body = finally_body
+        self.line = line
+
 class ListDecl:
     def __init__(self, name, items, line=None):
         self.name = name

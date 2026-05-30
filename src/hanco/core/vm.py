@@ -16,6 +16,7 @@ from .ast_nodes import (
     MethodCall,
     Program,
     Return,
+    Try,
     Use,
     Var,
     VarDecl,
@@ -100,6 +101,7 @@ class VM:
             Break: self._exec_break,
             Continue: self._exec_continue,
             Use: self._exec_use,
+            Try: self._exec_try,
             ListDecl: self._exec_list_decl,
             VarDecl: self._exec_var_decl,
             Assign: self._exec_assign,
@@ -310,6 +312,44 @@ class VM:
         for name in node.names:
             result = self.import_stdlib(name)
         return result
+
+    def _exec_try(self, node):
+        try:
+            try:
+                return self.eval_block(node.try_body)
+            except (ReturnSignal, BreakSignal, ContinueSignal):
+                raise
+            except Exception as exc:
+                if node.catch_body is None:
+                    raise
+                return self.eval_catch(node.error_name, exc, node.catch_body)
+        finally:
+            if node.finally_body is not None:
+                self.eval_block(node.finally_body)
+
+    def eval_catch(self, error_name, error, body):
+        vars_dict = self.current_vars()
+        var_types = self.current_var_types()
+        had_value = error_name in vars_dict
+        had_type = error_name in var_types
+        old_value = vars_dict.get(error_name)
+        old_type = var_types.get(error_name)
+
+        vars_dict[error_name] = str(error)
+        var_types[error_name] = TYPE_STRING
+
+        try:
+            return self.eval_block(body)
+        finally:
+            if had_value:
+                vars_dict[error_name] = old_value
+            else:
+                vars_dict.pop(error_name, None)
+
+            if had_type:
+                var_types[error_name] = old_type
+            else:
+                var_types.pop(error_name, None)
 
     def _exec_list_decl(self, node):
         items = [self.eval_expr(item) for item in node.items]

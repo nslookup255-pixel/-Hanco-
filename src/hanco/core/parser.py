@@ -63,6 +63,7 @@ class Parser:
         if tok.value == "멈춤": return self.break_stmt()
         if tok.value == "건너뛰기": return self.continue_stmt()
         if tok.value == "사용": return self.use_stmt()
+        if tok.value == "시도": return self.try_stmt()
         if tok.value == "변수": return self.var_decl()
 
         if self.is_assignment_stmt():
@@ -186,6 +187,33 @@ class Parser:
         self.eat("]")
         body = self.parse_block()
         return ForLoop(var_name, start, end, body, line)
+
+    def try_stmt(self):
+        line = self.cur().line
+        self.eat("시도")
+        try_body = self.parse_block()
+
+        error_name = None
+        catch_body = None
+        finally_body = None
+
+        self.skip_newlines()
+        tok = self.cur()
+        if tok and tok.value == "잡기":
+            self.eat("잡기")
+            error_name = self.eat().value
+            catch_body = self.parse_block()
+            self.skip_newlines()
+            tok = self.cur()
+
+        if tok and tok.value == "마지막":
+            self.eat("마지막")
+            finally_body = self.parse_block()
+
+        if catch_body is None and finally_body is None:
+            raise Exception(f"[{line}번 줄] 시도에는 잡기 또는 마지막 블록이 필요합니다.")
+
+        return Try(try_body, error_name, catch_body, finally_body, line)
 
     def var_decl(self):
         line = self.cur().line

@@ -4,6 +4,15 @@ from hanco.core.vm import VM
 
 code = """
 출력("안녕!")
+시도<
+    변수 숫자 하나 = "안녕"
+~>
+잡기 오류
+    출력(오류)
+~>
+마지막
+    출력("항상 실행")
+~>
 """
 
 lexer = Lexer(code)
